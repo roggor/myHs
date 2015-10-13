@@ -1,0 +1,38 @@
+/*
+ * info.cpp
+ *
+ *  Created on: Oct 5, 2015
+ *      Author: maciek
+ */
+
+/*
+ * GUI - based on gtk+ albo qt
+ * baza danych
+ * snmp
+ * http
+ * www
+ * remote x client
+ *
+ *
+ * X Window System
+ * -mamy Xserver, Xprotocol, Xclient
+ * -po stronie aplikacji klienta chodzi biblioteka Qt, serwer dostarcza informacji o kliknieciu i wyswietla na ekranie co kaze klient
+ * -serwer mozna odpalic na maszynie zdalnej i wtedy informacje o kliknieciu i wyswietleniu pochodza ze zdalnej maszyny
+ *
+ * Odseparowanie GUI od back-end
+ *
+ * Baza danych
+ *
+ *
+ * Protocol:
+ * 	- nadawanie co 300ms wysylane write_bz do wszytkich stanowisk
+ * 		przy 115200:
+ * 		write_bz + read_all(bez czytnika) = 12 bajtow ... 1ms + (10ms latency wyswietlacza) = 11ms
+ * 		write_bz + read_all(max czytnik) = 267 bajtow ... 19ms + (10ms latency wyswietlacza) = 29ms
+ * 		..
+ *		write_ssp(max) + read_ssp(max) = 517 bajtow ... 36ms + (10ms latency wyswietlacza) = 46ms
+ * 	-
+ *
+ */
+
+
