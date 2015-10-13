@@ -56,8 +56,8 @@ void protoInit (void)
 	struct sched_param sSchedParam;
 
 #define BAUDRATE B9600
-//#define MODEMDEVICE "/dev/ttyS0"
-#define MODEMDEVICE "/dev/ttyUSB0"
+#define MODEMDEVICE "/dev/ttyS0"
+//#define MODEMDEVICE "/dev/ttyUSB0"
 
 	struct termios newtio;
 
