@@ -68,13 +68,33 @@ unsigned char stanGetNumberOfEnabled(void)
 void stanInit(void)
 {
 	stanMapAddr2IdxDef();
+
+	/* for now configure only Stan 0 */
 	Stanowiska[0].enabled = true;
+	Stanowiska[0].disp.offBits=16;
+	Stanowiska[0].disp.sizeBits=32;
+}
+
+void Stanowiska_t::WriteDisp(char *display, bool writeHw)
+{
+	unsigned char k;
+	for (k=0; k<4; k++)
+		disp.data[k] = display[k];
+
+	if (writeHw)
+		WriteAll();
 }
 
 void Stanowiska_t::TimeoutFromProtocol(void)
 {
 	printf ("Stan %2d (addr 0x%2x): TimeoutFromProtoco\n", stanMapAddr2Idx(addr),addr);
 }
+
+void Stanowiska_t::RcvErrorFromProtocol(void)
+{
+	printf ("Stan %2d (addr 0x%2x): RcvErrorFromProtocol\n", stanMapAddr2Idx(addr),addr);
+}
+
 
 void Stanowiska_t::UpdWejscia(unsigned char *we)
 {

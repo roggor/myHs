@@ -17,6 +17,7 @@
 #include "globalConfig.h"
 #include "cli.h"
 #include "protocol.h"
+#include "stanowiska.h"
 
 /* TODO:
  * zmienic te bufory przy kadej komendzie, przy najmniej na jakis jeden globalny
@@ -41,6 +42,23 @@ int usartComRxPrintStats(struct cli_def *cli, char *command, char *argv[], int a
 	ret=protoGetGlobalStats(buf);
     cli_print(cli, "%s\nSize: %u out of %lu\n", buf, ret, sizeof(buf));
     return CLI_OK;
+}
+
+int stanSetDisp(struct cli_def *cli, char *command, char *argv[], int argc)
+{
+	Stanowiska_t *pStan;
+	char buf[4];
+	unsigned int k;
+	if ((atoi(argv[0]) < (MAX_STAN+1)) && (atoi(argv[0])>=0))
+	{
+		pStan = &Stanowiska[atoi(argv[0])];
+		for (k=0; k<9999; k++)
+		{
+			sprintf(buf, "%d", k);
+			pStan->WriteDisp(buf, true);
+		}
+	}
+	return CLI_OK;
 }
 
 int stanStats(struct cli_def *cli, char *command, char *argv[], int argc)
@@ -73,7 +91,7 @@ int stanStats(struct cli_def *cli, char *command, char *argv[], int argc)
 void InitCli(void)
 {
 	struct sockaddr_in servaddr;
-	struct cli_command *stats;
+	struct cli_command *stats, *stan;
 	struct cli_def *cli;
 	int on = 1, x, s;
 
@@ -89,6 +107,8 @@ void InitCli(void)
 	cli_register_command(cli, stats, "globStats", usartComRxPrintStats, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help globStats");
 	cli_register_command(cli, stats, "stanStats", stanStats, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help stanStats");
 
+	stan=cli_register_command(cli, NULL, "stan", NULL, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help stan");
+	cli_register_command(cli, stan, "setDisp", stanSetDisp, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help stanSetDisp");
 	// Create a socket
 	s = socket(AF_INET, SOCK_STREAM, 0);
 	setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));

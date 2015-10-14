@@ -142,7 +142,8 @@ typedef struct
 	uint32_t recvLoPrioErrCRC;
 	uint32_t recvHiPrioErr;
 	uint32_t recvLoPrioErr;
-
+	uint32_t recvHiPrioStanTimeout;
+	uint32_t recvLoPrioStanTimeout;
 } protoStatsPerStan_t;
 
 

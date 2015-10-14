@@ -66,9 +66,11 @@ public:
 	class DispBlink_t dispBlink;
 
 public:
+	void WriteDisp(char *display, bool writeHw);
 	void UpdWejscia(unsigned char *we);
 	void WriteAll(void);
 	void TimeoutFromProtocol(void);
+	void RcvErrorFromProtocol(void);
 };
 
 extern Stanowiska_t Stanowiska[MAX_STAN+1];

@@ -262,7 +262,7 @@ int protoGetGlobalStats(char* str)
 
 	return (p - str);
 
-#undef STATS(__stat__,__str__)
+#undef STATS
 }
 
 int protoGetPerStanStats(char* str, unsigned int stan)
@@ -284,11 +284,14 @@ int protoGetPerStanStats(char* str, unsigned int stan)
 	STATS(protoStatsPerStan[stan].recvLoPrioErrCRC,        "recvLoPrioErrCRC                 :")
 	STATS(protoStatsPerStan[stan].recvHiPrioErr,           "recvHiPrioErr                    :")
 	STATS(protoStatsPerStan[stan].recvLoPrioErr,           "recvLoPrioErr                    :")
+	STATS(protoStatsPerStan[stan].recvHiPrioStanTimeout,   "recvHiPrioStanTimeout            :")
+	STATS(protoStatsPerStan[stan].recvLoPrioStanTimeout,   "recvLoPrioStanTimeout            :")
+
 	ret=sprintf(p, "\n"); p=p+ret;
 
 	return (p - str);
 
-#undef STATS(__stat__,__str__)
+#undef STATS
 }
 
 static uint8_t inline usartComCRC (volatile uint8_t* frame, uint16_t len)
@@ -313,6 +316,20 @@ static void protoSignalTimeout(void)
 	}
 }
 
+static void protoSignalReceiveError(void)
+{
+	int idx = stanMapAddr2Idx(usartCom_tx.addrReq);
+	Stanowiska_t *pStan;
+	if (idx >= 0)
+	{
+		pStan = &Stanowiska[idx];
+		pStan->RcvErrorFromProtocol();
+	}
+}
+
+
+
+
 static void protoFuncReadAll(usartComRxUnionFrame_t readAllStr, uint16_t dataLength)
 {
 	int idx = stanMapAddr2Idx(usartCom_tx.addrReq);
@@ -330,8 +347,13 @@ static void protoFuncReadAll(usartComRxUnionFrame_t readAllStr, uint16_t dataLen
 
 static void protoFuncReadBz(usartComRxUnionFrame_t readAllStr, uint16_t dataLength)
 {
-	//int idx = stanMapAddr2Idx(usartCom_tx.addrReq);
-	//printf ("rx: addr x%x, protoFuncReadBz\n", usartCom_tx.addrReq);
+	int idx = stanMapAddr2Idx(usartCom_tx.addrReq);
+	Stanowiska_t *pStan;
+	if (idx >= 0)
+	{
+		pStan = &Stanowiska[idx];
+		//... signal heartbeat or that no reads are waiting
+	}
 }
 
 /*
@@ -340,21 +362,26 @@ static void protoFuncReadBz(usartComRxUnionFrame_t readAllStr, uint16_t dataLeng
  * 1  - partial frame received
  * -1 - error during receiving
  * -2 - frames without context
+ *
+ * if(flush==true) to zwraca rxState
+ *
  */
 static int parseRxProtocol(unsigned char *buff, unsigned int length, bool flush)
 {
 	unsigned int l;
 	uint8_t usartComRxByte;
+	USART_COM_RX_STATE_t flushRxState;
 	static usartCom_rx_t usartCom_rx = {{{0, }}, WAITING_FOR_START_BYTE, FUNC_INVALID, 0, false, 0};
 
 	if (flush)
 	{
+		flushRxState=usartCom_rx.usartCom_rx_state;
 		usartComCritStats.usartComFlushesNr++;
 		usartCom_rx.usartCom_rx_state = WAITING_FOR_START_BYTE;
 		usartCom_rx.usartComDataLength=0;
 		usartCom_rx.usartComFunction = FUNC_INVALID;
 		usartCom_rx.czytLen=0;
-		return 0;
+		return ((int) flushRxState);
 	}
 
 	for (l=0; l<length; l++)
@@ -470,6 +497,14 @@ static int parseRxProtocol(unsigned char *buff, unsigned int length, bool flush)
 						switch (usartCom_rx.usartComFunction)
 						{
 						case FUNC_READ_ALL:
+							if (usartCom_rx.usartComRxUnionFrame.usartComReadAllStr.we[1] & 0x1)
+							{
+								if (usartCom_tx.sendHiPrio)
+									protoStatsPerStan[stanMapAddr2Idx(usartCom_tx.addrReq)].recvHiPrioStanTimeout++;
+								else
+									protoStatsPerStan[stanMapAddr2Idx(usartCom_tx.addrReq)].recvLoPrioStanTimeout++;
+							}
+
 							protoFuncReadAll(usartCom_rx.usartComRxUnionFrame, usartCom_rx.usartComDataLength);
 							break;
 
@@ -547,6 +582,7 @@ static void *rxRs485Thread(void *arg)
 	unsigned char buff[255];
 	fd_set set;
 	struct timeval timeout;
+	int retFlush;
 
 	while(1)
 	{
@@ -560,7 +596,7 @@ static void *rxRs485Thread(void *arg)
 			FD_ZERO(&set);
 			FD_SET(fd, &set);
 			timeout.tv_sec = 0;
-			timeout.tv_usec = 300000;
+			timeout.tv_usec = 30000;
 
 			retSelect=select(fd + 1, &set, NULL, NULL, &timeout);
 			if(retSelect < 0)
@@ -572,18 +608,16 @@ static void *rxRs485Thread(void *arg)
 			else if(retSelect == 0)
 			{
 				//Timeout
-				printf("T-addr 0x%x \n", usartCom_tx.addrReq);
 				protoSignalTimeout();
-
-				tcflush(fd, TCIFLUSH);
 
 				if (usartCom_tx.sendHiPrio)
 					protoStatsPerStan[stanMapAddr2Idx(usartCom_tx.addrReq)].recvHiPrioTimeouts++;
 				else
 					protoStatsPerStan[stanMapAddr2Idx(usartCom_tx.addrReq)].recvLoPrioTimeouts++;
 
-				//only clean static variables in parseRxProtocol
-				parseRxProtocol(NULL, 0, true);
+				//only clean static variables in parseRxProtocol, and return rx_state
+				retFlush=parseRxProtocol(NULL, 0, true);
+				printf("Select timeout: addr=0x%x,rx_state=%u\n", usartCom_tx.addrReq, retFlush);
 				break;
 			}
 			else
@@ -594,6 +628,7 @@ static void *rxRs485Thread(void *arg)
 				{
 					perror("read");
 					usartComCritStats.readLinuxErr++;
+					continue;
 				}
 
 				parseRet=parseRxProtocol(buff, retRead, false);
@@ -607,13 +642,21 @@ static void *rxRs485Thread(void *arg)
 				}
 				else if (parseRet<0)
 				{
+					//ReceiveError
+					protoSignalReceiveError();
+
 					if (usartCom_tx.sendHiPrio)
 						protoStatsPerStan[stanMapAddr2Idx(usartCom_tx.addrReq)].recvHiPrioErr++;
 					else
 						protoStatsPerStan[stanMapAddr2Idx(usartCom_tx.addrReq)].recvLoPrioErr++;
 
-					usleep(50000);
+					usleep(20000); //17ms to jest 255 bajtow@115200
 					tcflush(fd, TCIFLUSH);
+
+					//only clean static variables in parseRxProtocol, and return rx_state
+					retFlush=parseRxProtocol(NULL, 0, true);
+					printf("parseRxError: addr=0x%x,rx_state=%u\n", usartCom_tx.addrReq, retFlush);
+					break;
 				}
 				else
 				{
@@ -685,8 +728,8 @@ static void *txHiPrioRs485Thread(void *arg)
 			k=1;
 		}
 	}
-	return NULL;
 #endif
+	return NULL;
 }
 
 static void *txRs485Thread(void *arg)
