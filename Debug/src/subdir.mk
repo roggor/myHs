@@ -7,18 +7,21 @@ CPP_SRCS += \
 ../src/cli.cpp \
 ../src/myHs.cpp \
 ../src/protocol.cpp \
+../src/rozmieniarka.cpp \
 ../src/stanowiska.cpp 
 
 OBJS += \
 ./src/cli.o \
 ./src/myHs.o \
 ./src/protocol.o \
+./src/rozmieniarka.o \
 ./src/stanowiska.o 
 
 CPP_DEPS += \
 ./src/cli.d \
 ./src/myHs.d \
 ./src/protocol.d \
+./src/rozmieniarka.d \
 ./src/stanowiska.d 
 
 
@@ -26,7 +29,7 @@ CPP_DEPS += \
 src/%.o: ../src/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C++ Compiler'
-	g++ -D_REENTRANT -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	g++ -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

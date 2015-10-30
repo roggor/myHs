@@ -34,7 +34,8 @@
 /* TODO:
  * dodac FIFO dla USART_COM_TX_LOPRIO_IDX
  * zglaszanie bledow przy jakimkolwiek bledzie apropo komunikacji tzn timeoutow
- *
+ * dobrac timeouty i sprawdzic na rs485
+ * na demo zostawiam to co jest i dodaje tylko threada rx na innym interfejsie
  */
 
 int fd;
@@ -42,11 +43,12 @@ usartCom_tx_t usartCom_tx={0, };
 usartComCritStats_t usartComCritStats = {0, };
 static protoStatsPerStan_t protoStatsPerStan[MAX_STAN] = {0, };
 
+static void protoFuncSendRaw(unsigned char addr,unsigned char func,unsigned char *buf,unsigned int len,bool hiPrio);
 static uint8_t inline usartComCRC (volatile uint8_t* frame, uint16_t len);
 static int parseRxProtocol(unsigned char *buff, unsigned int length, bool flush);
 static void *rxRs485Thread(void *arg);
 static void *txRs485Thread(void *arg);
-static void *txHiPrioRs485Thread(void *arg);
+static void *sendCyclicRs485Thread(void *arg);
 
 void protoInit (void)
 {
@@ -56,8 +58,8 @@ void protoInit (void)
 	struct sched_param sSchedParam;
 
 #define BAUDRATE B9600
-#define MODEMDEVICE "/dev/ttyS0"
-//#define MODEMDEVICE "/dev/ttyUSB0"
+//#define MODEMDEVICE "/dev/ttyS0"
+#define MODEMDEVICE "/dev/ttyUSB0"
 
 	struct termios newtio;
 
@@ -156,14 +158,48 @@ void protoInit (void)
 		exit(EXIT_FAILURE);
 	}
 
-	res = pthread_create(&tx_hiPrioThread, &tAttr, txHiPrioRs485Thread, NULL);
+	res = pthread_create(&tx_hiPrioThread, &tAttr, sendCyclicRs485Thread, NULL);
 	if (res != 0) {
 		perror("Thread tx_hiPrioThread creation failed");
 		exit(EXIT_FAILURE);
 	}
 }
 
-void protoFuncSendRaw(unsigned char addr,unsigned char func,unsigned char *buf,unsigned int len,bool hiPrio)
+void protoFuncWriteAll(unsigned char addr, unsigned char *wy, unsigned char *disp, unsigned char dots, unsigned char opts, bool hiPrio)
+{
+	unsigned char buff[FUNC_WRITE_ALL_DATA_LENGTH];
+
+	buff[0]=wy[0];
+	buff[1]=wy[1];
+	memcpy(&buff[2], disp, DISP_SIZE);
+	buff[6]= (dots | (opts<<4));
+
+	protoFuncSendRaw(addr, FUNC_WRITE_ALL, buff, FUNC_WRITE_ALL_DATA_LENGTH, hiPrio);
+}
+
+void protoFuncWriteSSP(unsigned char addr, unsigned char *hopData, unsigned char hopLen, unsigned char *nvData, unsigned char nvLen, bool hiPrio)
+{
+	unsigned char buff[FUNC_WRITE_SSP_DATA_LEN];
+	unsigned char *pBuff=buff;
+
+	*pBuff=hopLen; pBuff++;
+	if (hopLen)
+	{
+		memcpy(pBuff, hopData, hopLen);
+		pBuff+=hopLen;
+	}
+
+	*pBuff=nvLen; pBuff++;
+	if (nvLen)
+	{
+		memcpy(pBuff, nvData, nvLen);
+		pBuff+=nvLen;
+	}
+
+	protoFuncSendRaw(addr, FUNC_WRITE_SSP, buff, (pBuff-buff), hiPrio);
+}
+
+static void protoFuncSendRaw(unsigned char addr,unsigned char func,unsigned char *buf,unsigned int len,bool hiPrio)
 {
 	unsigned char* pTxFrame;
 	unsigned int idx=USART_COM_TX_LOPRIO_IDX;
@@ -201,36 +237,6 @@ void protoFuncSendRaw(unsigned char addr,unsigned char func,unsigned char *buf,u
 	pthread_cond_signal(&usartCom_tx.fillBuf);
 	pthread_mutex_unlock(&usartCom_tx.mutexBufReadWrite);
 }
-
-#if 0
-void protoFuncWriteAll(unsigned char addr,unsigned char wy[2],unsigned char disp[4],unsigned char opts)
-{
-	unsigned char* pTxFrame;
-
-	/* producer */
-	pthread_mutex_lock(&usartCom_tx.mutexBufReadWrite);
-	while (usartCom_tx.countBufNormal == 1)
-		pthread_cond_wait(&usartCom_tx.emptyBuf, &usartCom_tx.mutexBufReadWrite);
-
-	pTxFrame = usartCom_tx.usartComTxUnionFrame[USART_COM_TX_LOPRIO_IDX].usartComTxFrame;
-	pTxFrame[0]=USART_COM_STARTBYTE;
-	pTxFrame[1]=addr;
-	pTxFrame[2]=FUNC_WRITE_ALL;
-	memcpy(&pTxFrame[3], wy, 2);
-	memcpy(&pTxFrame[5], disp, 4);
-	pTxFrame[9]=opts;
-
-	pTxFrame[10]=usartComCRC(pTxFrame, (10));
-	pTxFrame[11]=USART_COM_STOPTBYTE;
-	usartCom_tx.usartComTxDataLength[USART_COM_TX_LOPRIO_IDX]=12;
-
-	//buffer filled
-	usartCom_tx.countBufNormal=1;
-
-	pthread_cond_signal(&usartCom_tx.fillBuf);
-	pthread_mutex_unlock(&usartCom_tx.mutexBufReadWrite);
-}
-#endif
 
 int protoGetGlobalStats(char* str)
 {
@@ -312,7 +318,7 @@ static void protoSignalTimeout(void)
 	if (idx >= 0)
 	{
 		pStan = &Stanowiska[idx];
-		pStan->TimeoutFromProtocol();
+		//pStan->TimeoutFromProtocol();
 	}
 }
 
@@ -323,35 +329,42 @@ static void protoSignalReceiveError(void)
 	if (idx >= 0)
 	{
 		pStan = &Stanowiska[idx];
-		pStan->RcvErrorFromProtocol();
+		//pStan->RcvErrorFromProtocol();
 	}
 }
 
+static void protoFuncReadAll(usartComRxUnionFrame_t readAllStr)
+{
+	int idx = stanMapAddr2Idx(usartCom_tx.addrReq);
+	Stanowiska_t *pStan;
+	unsigned char we[2], wrzutnik, czytLen;
+	bool err;
+	unsigned char *pCzytnik;
+	if (idx >= 0)
+	{
+		we[0]=readAllStr.usartComReadAllStr.we[0];
+		we[1]=readAllStr.usartComReadAllStr.we[1] & 0x1;
 
+		wrzutnik=(readAllStr.usartComReadAllStr.we[1] & 0x7e) >> 1;
 
+		err=((readAllStr.usartComReadAllStr.we[1]&0x1)?true:false);
 
-static void protoFuncReadAll(usartComRxUnionFrame_t readAllStr, uint16_t dataLength)
+		pCzytnik=readAllStr.usartComReadAllStr.czytData;
+		czytLen=readAllStr.usartComReadAllStr.czytLen;
+
+		pStan = &Stanowiska[idx];
+		pStan->hwReadAll(we, wrzutnik, err, pCzytnik, czytLen);
+	}
+}
+
+static void protoFuncReadBz(usartComRxUnionFrame_t readAllStr)
 {
 	int idx = stanMapAddr2Idx(usartCom_tx.addrReq);
 	Stanowiska_t *pStan;
 	if (idx >= 0)
 	{
 		pStan = &Stanowiska[idx];
-		pStan->UpdWejscia(readAllStr.usartComReadAllStr.we);
-		//		pStan->UpdWrzutnik(readAllStr.usartComReadAllStr.we);
-		//		pStan->UpdErr(readAllStr.usartComReadAllStr.we);
-		//		pStan->UpdCzytnik(readAllStr.usartComReadAllStr.czytLen, readAllStr.usartComReadAllStr.czytData);
-	}
-	//printf ("rx: addr x%x, protoFuncReadAll\n", usartCom_tx.addrReq);
-}
-
-static void protoFuncReadBz(usartComRxUnionFrame_t readAllStr, uint16_t dataLength)
-{
-	int idx = stanMapAddr2Idx(usartCom_tx.addrReq);
-	Stanowiska_t *pStan;
-	if (idx >= 0)
-	{
-		pStan = &Stanowiska[idx];
+		pStan->hwReadBz();
 		//... signal heartbeat or that no reads are waiting
 	}
 }
@@ -505,11 +518,11 @@ static int parseRxProtocol(unsigned char *buff, unsigned int length, bool flush)
 									protoStatsPerStan[stanMapAddr2Idx(usartCom_tx.addrReq)].recvLoPrioStanTimeout++;
 							}
 
-							protoFuncReadAll(usartCom_rx.usartComRxUnionFrame, usartCom_rx.usartComDataLength);
+							protoFuncReadAll(usartCom_rx.usartComRxUnionFrame);
 							break;
 
 						case FUNC_READ_BZ:
-							protoFuncReadBz(usartCom_rx.usartComRxUnionFrame, usartCom_rx.usartComDataLength);
+							protoFuncReadBz(usartCom_rx.usartComRxUnionFrame);
 							break;
 
 						default:
@@ -576,6 +589,34 @@ static int parseRxProtocol(unsigned char *buff, unsigned int length, bool flush)
 	return -1;
 }
 
+static void *sendCyclicRs485Thread(void *arg)
+{
+	unsigned char nrOfConfiguredStan;
+	struct timeval timeout;
+	unsigned char idx=0;
+	Stanowiska_t *pStan;
+	unsigned char addr;
+
+	while (1)
+	{
+		nrOfConfiguredStan=stanGetNumberOfConfigured();
+
+		for(idx=0; idx<MAX_STAN; idx++)
+		{
+			pStan=&Stanowiska[idx];
+
+			//kazde stanowisko dostanie co MAX_POLL_INTERVAL_US, niezaleznie od ilosci stanowisk
+			timeout.tv_sec = 0;
+			timeout.tv_usec = MAX_POLL_INTERVAL_US/nrOfConfiguredStan;
+
+			select(0,NULL,NULL,NULL,&timeout);
+
+			//pStan->PeriodicPoll();
+		}
+	}
+	return NULL;
+}
+
 static void *rxRs485Thread(void *arg)
 {
 	int retSelect, retRead, parseRet;
@@ -596,7 +637,7 @@ static void *rxRs485Thread(void *arg)
 			FD_ZERO(&set);
 			FD_SET(fd, &set);
 			timeout.tv_sec = 0;
-			timeout.tv_usec = 30000;
+			timeout.tv_usec = 500000;
 
 			retSelect=select(fd + 1, &set, NULL, NULL, &timeout);
 			if(retSelect < 0)
@@ -671,64 +712,6 @@ static void *rxRs485Thread(void *arg)
 		pthread_cond_signal(&usartCom_tx.emptyUart);
 		pthread_mutex_unlock(&usartCom_tx.mutexUartReadWrite);
 	}
-	return NULL;
-}
-
-static void *txHiPrioRs485Thread(void *arg)
-{
-#if 1
-	unsigned char nrOfEnabledStan;
-	struct timeval timeout;
-	unsigned char idx=0;
-	Stanowiska_t *pStan;
-	unsigned char addr;
-
-	while (1)
-	{
-		nrOfEnabledStan=stanGetNumberOfEnabled();
-
-		for(idx=0; idx<MAX_STAN; idx++)
-		{
-			pStan=&Stanowiska[idx];
-			if(pStan->enabled)
-			{
-				timeout.tv_sec = 0;
-				timeout.tv_usec = MAX_POLL_INTERVAL_US/nrOfEnabledStan;
-
-				select(0,NULL,NULL,NULL,&timeout);
-
-				addr=pStan->addr;
-				protoFuncSendRaw(addr,FUNC_WRITE_BZ,NULL,0,true);
-			}
-		}
-	}
-
-#else
-	struct timeval timeout;
-	static unsigned int k=0;
-	unsigned char buf[255];
-
-	while (1)
-	{
-		timeout.tv_sec = 0;
-		timeout.tv_usec = 200000;
-
-		select(0,NULL,NULL,NULL,&timeout);
-
-		if(k)
-		{
-			//faked response from R05 ReadBz
-			protoFuncSendRaw(0x0, 0x03, NULL, 0, true);
-			k=0;
-		}
-		else
-		{
-			//faked response from R05 ReadAll
-			protoFuncSendRaw(0x0, 0x03, NULL, 0, true);
-			k=1;
-		}
-	}
-#endif
 	return NULL;
 }
 

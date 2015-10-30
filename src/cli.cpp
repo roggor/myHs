@@ -52,10 +52,10 @@ int stanSetDisp(struct cli_def *cli, char *command, char *argv[], int argc)
 	if ((atoi(argv[0]) < (MAX_STAN+1)) && (atoi(argv[0])>=0))
 	{
 		pStan = &Stanowiska[atoi(argv[0])];
-		for (k=0; k<9999; k++)
+		for (k=0; k<=9999; k++)
 		{
 			sprintf(buf, "%d", k);
-			pStan->WriteDisp(buf, true);
+			pStan->setDispString(buf, true, false);
 		}
 	}
 	return CLI_OK;

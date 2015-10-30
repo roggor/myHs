@@ -8,8 +8,25 @@
 #ifndef STANOWISKA_H_
 #define STANOWISKA_H_
 
-#define WRITE_ALL_WY_NR 9
-#define WRITE_ALL_MAX_DATA 7
+#define DIG_OUTS_MAX	16 //podzielne przez 8
+#define DISP_SIZE		4
+
+typedef enum
+{
+	DIG_OUT_L1 = 0,
+	DIG_OUT_L2,
+	DIG_OUT_L3,
+	DIG_OUT_L4,
+	DIG_OUT_L5,
+	DIG_OUT_L6,
+	DIG_OUT_L7,
+	DIG_OUT_L8,
+	DIG_OUT_L9,
+	DIG_OUT_G,
+	DIG_OUT_S,
+	DIG_OUT_D,
+	DIG_OUT_MAX
+} DIG_OUT_t;
 
 typedef enum
 {
@@ -19,67 +36,60 @@ typedef enum
 	DISP_BLINK_VFAST,
 } DISP_OPTS_t;
 
-class Param_t {
-public:
-	USART_COM_RX_FUNC_t protoFunc;
-	unsigned int offBits;
-	unsigned int sizeBits;
-};
-
-//tutaj beda wyjsia 1..9, grzalka, silownik, wrzutnik dissable
-class Out_t : public Param_t {
-public:
-	bool data;
-};
-
-//tutaj wyswietlacz
-class Disp_t : public Param_t {
-public:
-	unsigned char data[4];
-};
-
-//tutaj kropki wyswietlacza
-class DispDots_t : public Param_t {
-public:
-	bool data[4];
-};
-
-//tutaj opcje wyswietlacza
-class DispBlink_t : public Param_t {
-public:
-	DISP_OPTS_t data;
-};
 
 class Stanowiska_t {
 public:
-	bool enabled;
-	unsigned char addr;
+	bool configured;
+	bool periodicPollEnabled;
+	unsigned char rs485Addr;
+	char *dev; // /dev/ttySx
 
-	class Out_t wy[WRITE_ALL_WY_NR];
-
-	class Out_t grzalka;
-	class Out_t silownik;
-	class Out_t wrztDis;
-
-	class Disp_t disp;
-	class DispDots_t dispDots;
-	class DispBlink_t dispBlink;
+private:
+	unsigned char digOut_[DIG_OUTS_MAX/8];
+	unsigned char disp_[DISP_SIZE];
+	unsigned char dispDot_;
+	DISP_OPTS_t dispOpts_;
 
 public:
+	void setDigOutputOn(DIG_OUT_t digOut_, bool wrHw, bool hiPrio);
+	void setDigOutputOff(DIG_OUT_t digOut_, bool wrHw, bool hiPrio);
+
+	void setDispString(char *s, bool wrHw, bool hiPrio);
+	void setDispStringOpts(char *s, DISP_OPTS_t blinkOpts, bool wrHw, bool hiPrio);
+
+
+/*********** Interfejs stanowiska <-> protokol **********/
+private:
+	void hwWriteAll(bool hiPrio);
+public:
+	//interfejs z protokolu
+	void hwReadAll(unsigned char *we, unsigned char wrzutnik, bool err, unsigned char *pCzytnik, unsigned char czytLen);
+	void hwReadBz(void);
+/********************************************************/
+
+
+
+	/*
+	void PeriodicPoll(void);
 	void WriteDisp(char *display, bool writeHw);
 	void UpdWejscia(unsigned char *we);
+	void WriteBz(void);
 	void WriteAll(void);
 	void TimeoutFromProtocol(void);
 	void RcvErrorFromProtocol(void);
+*/
+
 };
+
+
 
 extern Stanowiska_t Stanowiska[MAX_STAN+1];
 
 void stanInit(void);
-unsigned char stanMapAddr2Idx(unsigned char addr);
+unsigned char stanMapAddr2Idx(unsigned char rs485Addr);
 unsigned char stanMapIdx2Addr(unsigned char idx);
-int stanSetAddr(unsigned char idx, unsigned char addr);
+int stanSetAddr(unsigned char idx, unsigned char rs485Addr);
 
-unsigned char stanGetNumberOfEnabled(void);
+unsigned char stanGetNumberOfConfigured(void);
 
 #endif /* STANOWISKA_H_ */

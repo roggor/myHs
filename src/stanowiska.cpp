@@ -26,11 +26,21 @@ static unsigned char mapIdx2Addr[MAX_STAN]=DEF_MAP_IDX2ADDR;
 static int mapAddr2Idx[255];
 
 
-static void stanMapAddr2IdxDef(void);
+static void stanMapAddr2IdxDef(void)
+{
+	unsigned char k;
+	for (k=0; k<255; k++)
+	{
+		if (k<MAX_STAN)
+			mapAddr2Idx[k]=k;
+		else
+			mapAddr2Idx[k]=DUMMY_STAN_IDX;
+	}
+}
 
 //bez sprawdzania argumentu - sprawdzanie robi stanSetAddr
-unsigned char stanMapAddr2Idx(unsigned char addr){
-	return mapAddr2Idx[addr];
+unsigned char stanMapAddr2Idx(unsigned char rs485Addr){
+	return mapAddr2Idx[rs485Addr];
 }
 
 //bez sprawdzania argumentu - sprawdzanie robi stanSetAddr
@@ -38,19 +48,19 @@ unsigned char stanMapIdx2Addr(unsigned char idx){
 	return mapIdx2Addr[idx];
 }
 
-int stanSetAddr(unsigned char idx, unsigned char addr)
+int stanSetAddr(unsigned char idx, unsigned char rs485Addr)
 {
 	if (idx<MAX_STAN)
 	{
 		mapAddr2Idx[mapIdx2Addr[idx]] = DUMMY_STAN_IDX;
-		mapIdx2Addr[idx] = addr;
-		mapAddr2Idx[addr] = idx;
+		mapIdx2Addr[idx] = rs485Addr;
+		mapAddr2Idx[rs485Addr] = idx;
 		return 0;
 	}
 	return (-1);
 }
 
-unsigned char stanGetNumberOfEnabled(void)
+unsigned char stanGetNumberOfConfigured(void)
 {
 	unsigned char k;
 	unsigned char ret=0;
@@ -59,7 +69,7 @@ unsigned char stanGetNumberOfEnabled(void)
 	for (k=0; k<MAX_STAN; k++)
 	{
 		pStan=&Stanowiska[k];
-		if(pStan->enabled)
+		if(pStan->configured)
 			ret++;
 	}
 	return ret;
@@ -70,24 +80,79 @@ void stanInit(void)
 	stanMapAddr2IdxDef();
 
 	/* for now configure only Stan 0 */
-	Stanowiska[0].enabled = true;
-	Stanowiska[0].disp.offBits=16;
-	Stanowiska[0].disp.sizeBits=32;
+	Stanowiska[0].configured = true;
+	Stanowiska[0].periodicPollEnabled = true;
 }
 
-void Stanowiska_t::WriteDisp(char *display, bool writeHw)
+void Stanowiska_t::setDigOutputOn(DIG_OUT_t wy, bool wrHw, bool hiPrio)
 {
-	unsigned char k;
-	for (k=0; k<4; k++)
-		disp.data[k] = display[k];
+	digOut_[wy/8] |= 1 << (wy%8);
 
-	if (writeHw)
-		WriteAll();
+	if(wrHw)
+		hwWriteAll(hiPrio);
 }
+
+void Stanowiska_t::setDigOutputOff(DIG_OUT_t wy, bool wrHw, bool hiPrio)
+{
+	digOut_[wy/8] &= ~(1 << (wy%8));
+
+	if(wrHw)
+		hwWriteAll(hiPrio);
+}
+
+void Stanowiska_t::setDispString(char *s, bool wrHw, bool hiPrio)
+{
+	//tutaj tez w stringu trzeba znalezc kropki i updatowac dispDot_
+	unsigned char k;
+	for (k=0; k<DISP_SIZE; k++)
+		disp_[k] = s[k];
+
+	if (wrHw)
+		hwWriteAll(hiPrio);
+}
+
+void Stanowiska_t::setDispStringOpts(char *s, DISP_OPTS_t blinkOpts, bool wrHw, bool hiPrio)
+{
+	setDispString(s, false, hiPrio);
+	dispOpts_ = blinkOpts;
+
+	if (wrHw)
+		hwWriteAll(hiPrio);
+}
+
+void Stanowiska_t::hwWriteAll(bool hiPrio)
+{
+	//to interfejs do protokolu, dodanie adresu, demultipleksacja z obiektw na interfejs
+	//do dodania jeszcze interfejs tutaj ... /dev/ttySx
+	protoFuncWriteAll(rs485Addr, digOut_, disp_, dispDot_, dispOpts_, hiPrio);
+}
+
+void Stanowiska_t::hwReadAll(unsigned char *we, unsigned char wrzutnik, bool err, unsigned char *pCzytnik, unsigned char czytLen)
+{
+	//to interfejs z protokolu
+	//readDigInput(we);
+	//readWrzutnik(wrzutnik);
+	//readErr(err);
+	//readCzytnik(pCzytnik, czytLen);
+}
+
+void Stanowiska_t::hwReadBz(void)
+{ }
+
+
+
+
+
+#if 0
+void Stanowiska_t::PeriodicPoll(void)
+{
+	WriteBz();
+}
+
 
 void Stanowiska_t::TimeoutFromProtocol(void)
 {
-	printf ("Stan %2d (addr 0x%2x): TimeoutFromProtoco\n", stanMapAddr2Idx(addr),addr);
+	//printf ("Stan %2d (addr 0x%2x): TimeoutFromProtoco\n", stanMapAddr2Idx(addr),addr);
 }
 
 void Stanowiska_t::RcvErrorFromProtocol(void)
@@ -99,6 +164,11 @@ void Stanowiska_t::RcvErrorFromProtocol(void)
 void Stanowiska_t::UpdWejscia(unsigned char *we)
 {
 	printf ("Stan %2d (addr 0x%2x): UpdWejscia\n", stanMapAddr2Idx(addr),addr);
+}
+
+void Stanowiska_t::WriteBz()
+{
+	protoFuncSendRaw(addr, FUNC_WRITE_BZ, NULL, 0, true);
 }
 
 void Stanowiska_t::WriteAll(void)
@@ -144,14 +214,6 @@ void Stanowiska_t::WriteAll(void)
 	protoFuncSendRaw(addr,FUNC_WRITE_ALL,buff,WRITE_ALL_MAX_DATA,false);
 }
 
-static void stanMapAddr2IdxDef(void)
-{
-	unsigned char k;
-	for (k=0; k<255; k++)
-	{
-		if (k<MAX_STAN)
-			mapAddr2Idx[k]=k;
-		else
-			mapAddr2Idx[k]=DUMMY_STAN_IDX;
-	}
-}
+#endif
+
+

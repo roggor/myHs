@@ -17,6 +17,8 @@
 #define USART_COM_STOPTBYTE	  0xA2
 
 #define FUNC_READ_ALL_MIN_LENGTH 8
+#define FUNC_WRITE_ALL_DATA_LENGTH 7
+#define FUNC_WRITE_SSP_DATA_LEN 66
 
 //czas co ile bedzie odpytywany kazdy modul
 #define MAX_POLL_INTERVAL_US 300000
@@ -88,8 +90,12 @@ typedef enum
 	FUNC_WRITE_BZ,
 	FUNC_READ_ALL,
 	FUNC_READ_BZ,
-	FUNC_INVALID,
-	FUNC_MAX
+	FUNC_WRITE_SSP,
+	FUNC_READ_SSP,
+	FUNC_WRITE_PRT,
+	FUNC_READ_PRT,
+	FUNC_READ_ERROR1,
+	FUNC_INVALID
 } USART_COM_RX_FUNC_t;
 
 typedef enum
@@ -181,8 +187,8 @@ typedef struct _usartCom_tx
 } usartCom_tx_t;
 
 void protoInit (void);
-//void protoFuncWriteAll(unsigned char addr,unsigned char wy[2],unsigned char disp[4],unsigned char opts);
-void protoFuncSendRaw(unsigned char addr,unsigned char func,unsigned char *buf,unsigned int len,bool hiPrio);
+void protoFuncWriteAll(unsigned char addr, unsigned char *wy, unsigned char *disp, unsigned char dots, unsigned char opts, bool hiPrio);
+void protoFuncWriteSSP(unsigned char addr, unsigned char *hopData, unsigned char hopLen, unsigned char *nvData, unsigned char nvLen, bool hiPrio);
 
 int protoGetGlobalStats(char* str);
 int protoGetPerStanStats(char* str, unsigned int stan);
