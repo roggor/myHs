@@ -5,19 +5,17 @@
 // Copyright   : Your copyright notice
 // Description : Hello World in C++, Ansi-style
 //============================================================================
-#include "globalConfig.h"
-#include "protocol.h"
-#include "stanowiska.h"
 #include "cli.h"
-/*
- * TODO:
- * -sprawdzic tego selecta bo jak jeden wyswietlacz nie bedzie odpowiadal to inne tez beda wolno pytane
- * -mozna robic reada np po max 2 bajty i wtedy ten timeout mozna zmniejszyc
- */
+#include "configGlobal.h"
+#include "protoCol.h"
+#include "protoDev.h"
+#include "protoDevR05.h"
+#include "protoDevR06.h"
+#include "myjnia.h"
+
 
 int main() {
-
-	stanInit();
+	devArrayInit();
 	protoInit();
 	InitCli();
 

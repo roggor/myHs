@@ -6,23 +6,29 @@
 CPP_SRCS += \
 ../src/cli.cpp \
 ../src/myHs.cpp \
-../src/protocol.cpp \
-../src/rozmieniarka.cpp \
-../src/stanowiska.cpp 
+../src/myjnia.cpp \
+../src/protoCol.cpp \
+../src/protoDev.cpp \
+../src/protoDevR05.cpp \
+../src/protoDevR06.cpp 
 
 OBJS += \
 ./src/cli.o \
 ./src/myHs.o \
-./src/protocol.o \
-./src/rozmieniarka.o \
-./src/stanowiska.o 
+./src/myjnia.o \
+./src/protoCol.o \
+./src/protoDev.o \
+./src/protoDevR05.o \
+./src/protoDevR06.o 
 
 CPP_DEPS += \
 ./src/cli.d \
 ./src/myHs.d \
-./src/protocol.d \
-./src/rozmieniarka.d \
-./src/stanowiska.d 
+./src/myjnia.d \
+./src/protoCol.d \
+./src/protoDev.d \
+./src/protoDevR05.d \
+./src/protoDevR06.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

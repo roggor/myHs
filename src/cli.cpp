@@ -14,10 +14,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "globalConfig.h"
 #include "cli.h"
-#include "protocol.h"
-#include "stanowiska.h"
+
+#include "configGlobal.h"
+#include "protoCol.h"
+#include "protoDevR05.h"
+#include "myjnia.h"
 
 /* TODO:
  * zmienic te bufory przy kadej komendzie, przy najmniej na jakis jeden globalny
@@ -46,16 +48,16 @@ int usartComRxPrintStats(struct cli_def *cli, char *command, char *argv[], int a
 
 int stanSetDisp(struct cli_def *cli, char *command, char *argv[], int argc)
 {
-	Stanowiska_t *pStan;
+	protoDev_t *pStan;
 	char buf[4];
 	unsigned int k;
-	if ((atoi(argv[0]) < (MAX_STAN+1)) && (atoi(argv[0])>=0))
+	if ((atoi(argv[0]) <= (GOOD_R0X_IDX)) && (atoi(argv[0])>=0))
 	{
-		pStan = &Stanowiska[atoi(argv[0])];
+		pStan = protoDev[atoi(argv[0])];
 		for (k=0; k<=9999; k++)
 		{
 			sprintf(buf, "%d", k);
-			pStan->setDispString(buf, true, false);
+		//	pStan->setDispString(buf, true, false);
 		}
 	}
 	return CLI_OK;
@@ -69,16 +71,16 @@ int stanStats(struct cli_def *cli, char *command, char *argv[], int argc)
 
 	if (argc < 1)
 	{
-		for(k=0; k<(MAX_STAN+1); k++)
-		{
-			ret=protoGetPerStanStats(buf, k);
-			cli_print(cli, "%s\nSize: %u out of %lu\n", buf, ret, sizeof(buf));
-		}
+//		for(k=0; k<=GOOD_R0X_IDX; k++)
+//		{
+//			ret=protoGetPerStanStats(buf, k);
+//			cli_print(cli, "%s\nSize: %u out of %lu\n", buf, ret, sizeof(buf));
+//		}
 	}
-	else if ((atoi(argv[0]) < (MAX_STAN+1)) && (atoi(argv[0])>=0))
+	else if ((atoi(argv[0]) <= GOOD_R0X_IDX) && (atoi(argv[0])>=0))
 	{
-		ret=protoGetPerStanStats(buf, atoi(argv[0]));
-		cli_print(cli, "%s\nSize: %u out of %lu\n", buf, ret, sizeof(buf));
+		//ret=protoGetPerStanStats(buf, atoi(argv[0]));
+		//cli_print(cli, "%s\nSize: %u out of %lu\n", buf, ret, sizeof(buf));
 	}
 	else
 	{
