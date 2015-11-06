@@ -13,14 +13,16 @@ hopReqStatus
 */
 #include <string.h>
 
-#include "configGlobal.h"
+#include "configGlobDemo.h"
+#include "configKartDemo.h"
+
 #include "protoCol.h"
 #include "protoDevR06.h"
 
 
 void protoDevR06_t::hwWriteSSP(bool hiPrio)
 {
-	protoFuncWriteSSP(rs485Addr, hopTxBuff.cc2RawBytes, hopTxDataLen, nvTxBuff.cc2RawBytes, nvTxDataLen, hiPrio);
+	protoFuncWriteSSP(ttyNr, txAddr, hopTxBuff.cc2RawBytes, hopTxDataLen, nvTxBuff.cc2RawBytes, nvTxDataLen, hiPrio);
 }
 
 void protoDevR06_t::setHopReqFloat(uint32_t amount, currency_t currency, bool wrHw, bool hiPrio)

@@ -23,6 +23,19 @@
 //czas co ile bedzie odpytywany kazdy modul
 #define MAX_POLL_INTERVAL_US 300000
 
+typedef enum
+{
+	MASTER,
+	SLAVE,
+	NONE
+} funOnTty_t;
+
+typedef struct
+{
+	uint8_t ttyNr;
+	funOnTty_t funOnBus;
+} protoThreadArgs_t;
+
 typedef union
 {
 	struct _usartComReadAllStr
@@ -143,14 +156,14 @@ typedef struct _usartCom_rx
 
 typedef struct _usartCom_tx
 {
-	pthread_mutex_t mutexUartReadWrite;
+	pthread_mutex_t mutexUsart;
 	unsigned int countUart;
-	pthread_cond_t  emptyUart, fillUart;
+	pthread_cond_t  condUsartEmpty, condUsartFull;
 
-	pthread_mutex_t mutexBufReadWrite;
+	pthread_mutex_t mutexBuffer;
 	unsigned int countBufNormal;
 	unsigned int countBufHiPrio;
-	pthread_cond_t  emptyBuf, fillBuf;
+	pthread_cond_t  condBufferEmpty, condBufferFull;
 
 	unsigned char addrReq;
 	bool sendHiPrio;
@@ -163,8 +176,8 @@ typedef struct _usartCom_tx
 } usartCom_tx_t;
 
 void protoInit (void);
-void protoFuncWriteAll(unsigned char addr, unsigned char *wy, unsigned char *disp, unsigned char dots, unsigned char opts, bool hiPrio);
-void protoFuncWriteSSP(unsigned char addr, unsigned char *hopData, unsigned char hopLen, unsigned char *nvData, unsigned char nvLen, bool hiPrio);
+void protoFuncWriteAll(unsigned int ttyNr, unsigned char addr, unsigned char *wy, unsigned char *disp, unsigned char dots, unsigned char opts, bool hiPrio);
+void protoFuncWriteSSP(unsigned int ttyNr, unsigned char addr, unsigned char *hopData, unsigned char hopLen, unsigned char *nvData, unsigned char nvLen, bool hiPrio);
 
 int protoGetGlobalStats(char* str);
 

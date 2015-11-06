@@ -9,6 +9,7 @@ CPP_SRCS += \
 ../src/myjnia.cpp \
 ../src/protoCol.cpp \
 ../src/protoDev.cpp \
+../src/protoDevImSlave.cpp \
 ../src/protoDevR05.cpp \
 ../src/protoDevR06.cpp 
 
@@ -18,6 +19,7 @@ OBJS += \
 ./src/myjnia.o \
 ./src/protoCol.o \
 ./src/protoDev.o \
+./src/protoDevImSlave.o \
 ./src/protoDevR05.o \
 ./src/protoDevR06.o 
 
@@ -27,6 +29,7 @@ CPP_DEPS += \
 ./src/myjnia.d \
 ./src/protoCol.d \
 ./src/protoDev.d \
+./src/protoDevImSlave.d \
 ./src/protoDevR05.d \
 ./src/protoDevR06.d 
 

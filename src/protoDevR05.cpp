@@ -8,9 +8,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "configGlobal.h"
+#include "configGlobDemo.h"
+#include "configKartDemo.h"
+
 #include "protoCol.h"
 #include "protoDevR05.h"
+
 
 
 void protoDevR05_t::setDigOutputOn(DIG_OUT_t wy, bool wrHw, bool hiPrio)
@@ -53,7 +56,7 @@ void protoDevR05_t::hwWriteAll(bool hiPrio)
 {
 	//to interfejs do protokolu, dodanie adresu, demultipleksacja z obiektw na interfejs
 	//do dodania jeszcze interfejs tutaj ... /dev/ttySx
-	protoFuncWriteAll(rs485Addr, digOut_, disp_, dispDot_, dispOpts_, hiPrio);
+	protoFuncWriteAll(ttyNr, txAddr, digOut_, disp_, dispDot_, dispOpts_, hiPrio);
 }
 
 void protoDevR05_t::hwReadAll(unsigned char *we, unsigned char wrzutnik, bool err, unsigned char *pCzytnik, unsigned char czytLen)

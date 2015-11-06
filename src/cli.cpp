@@ -14,13 +14,13 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "cli.h"
-
-#include "configGlobal.h"
+#include "configGlobDemo.h"
+#include "configKartDemo.h"
 #include "protoCol.h"
 #include "protoDevR05.h"
 #include "myjnia.h"
 
+#include "cli.h"
 /* TODO:
  * zmienic te bufory przy kadej komendzie, przy najmniej na jakis jeden globalny
  *
@@ -42,18 +42,18 @@ int usartComRxPrintStats(struct cli_def *cli, char *command, char *argv[], int a
 	char buf[1000];
 	unsigned int ret;
 	ret=protoGetGlobalStats(buf);
-    cli_print(cli, "%s\nSize: %u out of %lu\n", buf, ret, sizeof(buf));
+    cli_print(cli, (char*)"%s\nSize: %u out of %lu\n", buf, ret, sizeof(buf));
     return CLI_OK;
 }
 
 int stanSetDisp(struct cli_def *cli, char *command, char *argv[], int argc)
 {
-	protoDev_t *pStan;
+//	protoDev_t *pStan;
 	char buf[4];
 	unsigned int k;
 	if ((atoi(argv[0]) <= (GOOD_R0X_IDX)) && (atoi(argv[0])>=0))
 	{
-		pStan = protoDev[atoi(argv[0])];
+//		pStan = protoDev[atoi(argv[0])];
 		for (k=0; k<=9999; k++)
 		{
 			sprintf(buf, "%d", k);
@@ -66,8 +66,8 @@ int stanSetDisp(struct cli_def *cli, char *command, char *argv[], int argc)
 int stanStats(struct cli_def *cli, char *command, char *argv[], int argc)
 {
 	//TODO: change it somehow
-	char buf[1000];
-	unsigned int ret, k;
+//	char buf[1000];
+//	unsigned int ret, k;
 
 	if (argc < 1)
 	{
@@ -84,7 +84,7 @@ int stanStats(struct cli_def *cli, char *command, char *argv[], int argc)
 	}
 	else
 	{
-		cli_print(cli, "Invalid argument\n");
+		cli_print(cli, (char*)"Invalid argument\n");
 	}
 
 	return CLI_OK;
@@ -100,17 +100,17 @@ void InitCli(void)
 	cli = cli_init();
 
 	// Set the hostname (shown in the the prompt)
-	cli_set_hostname(cli, "myHs");
+	cli_set_hostname(cli, (char*)"myHs");
 	// Set the greeting
-	cli_set_banner(cli, "Welcome to myHs.");
+	cli_set_banner(cli, (char*)"Welcome to myHs.");
 
 	// Set up a few simple one-level commands
-	stats=cli_register_command(cli, NULL, "prot", NULL, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help prot");
-	cli_register_command(cli, stats, "globStats", usartComRxPrintStats, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help globStats");
-	cli_register_command(cli, stats, "stanStats", stanStats, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help stanStats");
+	stats=cli_register_command(cli, NULL, (char*)"prot", NULL, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, (char*)"help prot");
+	cli_register_command(cli, stats, (char*)"globStats", usartComRxPrintStats, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, (char*)"help globStats");
+	cli_register_command(cli, stats, (char*)"stanStats", stanStats, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, (char*)"help stanStats");
 
-	stan=cli_register_command(cli, NULL, "stan", NULL, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help stan");
-	cli_register_command(cli, stan, "setDisp", stanSetDisp, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, "help stanSetDisp");
+	stan=cli_register_command(cli, NULL, (char*)"stan", NULL, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, (char*)"help stan");
+	cli_register_command(cli, stan, (char*)"setDisp", stanSetDisp, PRIVILEGE_UNPRIVILEGED, MODE_EXEC, (char*)"help stanSetDisp");
 	// Create a socket
 	s = socket(AF_INET, SOCK_STREAM, 0);
 	setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));

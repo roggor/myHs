@@ -11,7 +11,7 @@
 extern protoDev_t *protoDev[MAX_R0X];
 
 unsigned char getNumberOfConfigured(void);
-protoDev_t *mapDevAddr2Dev(unsigned char dev, unsigned char addr);
+protoDev_t *mapDevAddr2Dev(unsigned char dev, unsigned char addr, funOnTty_t funOnTty);
 void devArrayInit(void);
 
 #endif /* MYJNIA_H_ */

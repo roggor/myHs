@@ -5,8 +5,10 @@
 // Copyright   : Your copyright notice
 // Description : Hello World in C++, Ansi-style
 //============================================================================
+#include "configGlobDemo.h"
+#include "configKartDemo.h"
+
 #include "cli.h"
-#include "configGlobal.h"
 #include "protoCol.h"
 #include "protoDev.h"
 #include "protoDevR05.h"
